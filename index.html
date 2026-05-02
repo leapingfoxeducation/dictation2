@@ -105,79 +105,104 @@ button {
 </div>
 
 <script>
-let mediaRecorder = null;
+let mediaRecorder;
 let audioChunks = [];
 let files = [];
 let playCounts = [];
-let currentRecordingIndex = null;
+let stream;
+let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 async function initRecorder() {
-  if (mediaRecorder) return; // already set up
-
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream);
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    if (!isIOS && window.MediaRecorder) {
+      mediaRecorder = new MediaRecorder(stream);
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      const insertIndex = currentRecordingIndex === null ? files.length : currentRecordingIndex + 1;
+      mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
 
-      files.splice(insertIndex, 0, blob);
-      playCounts.splice(insertIndex, 0, 0);
-
-      audioChunks = [];
-      document.getElementById('recLight').classList.remove('recording');
-      render();
-    };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks);
+        saveRecording(blob);
+      };
+    }
 
   } catch (err) {
-    alert('Microphone access denied or unavailable');
+    alert("Mic error: " + err.message);
+    console.error(err);
   }
 }
 
-async function startRecording(index) {
-  await initRecorder();
-
-  if (!mediaRecorder || mediaRecorder.state === 'recording') return;
-
-  currentRecordingIndex = (index !== undefined) ? index : files.length - 1;
+function saveRecording(blob) {
+  files.push(blob);
+  playCounts.push(0);
   audioChunks = [];
-
-  mediaRecorder.start();
-  document.getElementById('recLight').classList.add('recording');
+  document.getElementById('recLight').classList.remove('recording');
+  render();
 }
 
+// 🎤 START
+async function startRecording() {
+  if (!stream) await initRecorder();
+
+  document.getElementById('recLight').classList.add('recording');
+
+  // iOS fallback
+  if (isIOS) {
+    alert("Recording on iPads/iPhones is limited.\nOpening voice recorder instead.");
+
+    // This triggers native recorder workaround
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "audio/*";
+    input.capture = "microphone";
+
+    input.onchange = e => {
+      const file = e.target.files[0];
+      if (file) {
+        files.push(file);
+        playCounts.push(0);
+        render();
+      }
+    };
+
+    input.click();
+    document.getElementById('recLight').classList.remove('recording');
+    return;
+  }
+
+  // Normal recording
+  if (mediaRecorder && mediaRecorder.state !== "recording") {
+    audioChunks = [];
+    mediaRecorder.start();
+  }
+}
+
+// 🛑 STOP
 function stopRecording() {
-  if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
-  mediaRecorder.stop();
+  if (!isIOS && mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+  }
+}
+
+// ▶️ PLAY
+function playFile(i) {
+  const url = URL.createObjectURL(files[i]);
+  const audio = new Audio(url);
+
+  audio.play().catch(() => {
+    alert("Tap again to play");
+  });
+
+  playCounts[i]++;
+  render();
 }
 
 function deleteFile(i) {
   files.splice(i, 1);
   playCounts.splice(i, 1);
-  render();
-}
-
-function moveLeft(i) {
-  if (i === 0) return;
-  [files[i-1], files[i]] = [files[i], files[i-1]];
-  [playCounts[i-1], playCounts[i]] = [playCounts[i], playCounts[i-1]];
-  render();
-}
-
-function moveRight(i) {
-  if (i === files.length - 1) return;
-  [files[i+1], files[i]] = [files[i], files[i+1]];
-  [playCounts[i+1], playCounts[i]] = [playCounts[i], playCounts[i+1]];
-  render();
-}
-
-function playFile(i) {
-  const audio = new Audio(URL.createObjectURL(files[i]));
-  audio.play();
-  playCounts[i]++;
   render();
 }
 
@@ -187,17 +212,10 @@ function render() {
   container.innerHTML = '';
 
   if (mode === 'record') {
-    const recordBtn = document.createElement('button');
-    recordBtn.innerText = 'Record New';
-    recordBtn.className = 'record-btn';
-    recordBtn.onclick = () => startRecording();
-
-    const stopBtn = document.createElement('button');
-    stopBtn.innerText = 'Stop';
-    stopBtn.onclick = stopRecording;
-
-    container.appendChild(recordBtn);
-    container.appendChild(stopBtn);
+    container.innerHTML += `
+      <button class="record-btn" onclick="startRecording()">Record</button>
+      <button onclick="stopRecording()">Stop</button>
+    `;
   }
 
   const fileContainer = document.createElement('div');
@@ -211,8 +229,6 @@ function render() {
       card.innerHTML = `
         <div>File ${i+1}</div>
         <button class="delete-btn" onclick="deleteFile(${i})">✖</button>
-        <button class="nav-btn" onclick="moveLeft(${i})">←</button>
-        <button class="nav-btn" onclick="moveRight(${i})">→</button>
       `;
     }
 
@@ -220,7 +236,6 @@ function render() {
       card.innerHTML = `
         <div>${i+1}</div>
         <button class="play-btn" onclick="playFile(${i})">Play</button>
-        <button class="replay-btn" onclick="playFile(${i})">Replay</button>
       `;
     }
 
