@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Voice Dictation Pro</title>
+
 <link href="https://fonts.googleapis.com/css2?family=ADLaM+Display&display=swap" rel="stylesheet">
+
 <style>
 :root {
   --dark: #002D3F;
@@ -23,15 +25,21 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 .container {
-  width: 420px;
+  width: 95%;
+  max-width: 500px;
   background: #01394f;
   padding: 20px;
   border-radius: 20px;
   text-align: center;
+}
+
+h2 {
+  font-size: 28px;
+  margin-bottom: 10px;
 }
 
 select {
@@ -39,28 +47,34 @@ select {
   border-radius: 10px;
   margin-bottom: 15px;
   font-family: inherit;
+  font-size: 16px;
 }
 
 .files {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
 }
 
 .card {
   background: var(--blue);
-  padding: 10px;
-  border-radius: 12px;
-  width: 100px;
+  padding: 20px;
+  border-radius: 16px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 18px;
 }
 
 button {
-  margin: 3px;
+  margin: 5px 0;
   border: none;
-  border-radius: 8px;
-  padding: 6px;
+  border-radius: 10px;
+  padding: 10px;
   font-family: inherit;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -71,8 +85,8 @@ button {
 .replay-btn { background: var(--blue); }
 
 .indicator {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   background: red;
   border-radius: 50%;
   margin: 10px auto;
@@ -88,9 +102,16 @@ button {
 }
 </style>
 </head>
+
 <body>
 
 <div class="container">
+
+  <!-- 🔗 Back to LeapingFox -->
+  <a href="https://www.leapingfox.com.au" target="_blank" style="color:#EDEFEE; text-decoration:none; display:block; margin-bottom:10px;">
+    ← Back to LeapingFox
+  </a>
+
   <h2>Dictation Tool</h2>
 
   <select id="mode" onchange="render()">
@@ -100,8 +121,8 @@ button {
   </select>
 
   <div class="indicator" id="recLight"></div>
-
   <div id="content"></div>
+
 </div>
 
 <script>
@@ -143,17 +164,12 @@ function saveRecording(blob) {
   render();
 }
 
-// 🎤 START
 async function startRecording() {
   if (!stream) await initRecorder();
 
   document.getElementById('recLight').classList.add('recording');
 
-  // iOS fallback
   if (isIOS) {
-    alert("Recording on iPads/iPhones is limited.\nOpening voice recorder instead.");
-
-    // This triggers native recorder workaround
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "audio/*";
@@ -173,21 +189,18 @@ async function startRecording() {
     return;
   }
 
-  // Normal recording
   if (mediaRecorder && mediaRecorder.state !== "recording") {
     audioChunks = [];
     mediaRecorder.start();
   }
 }
 
-// 🛑 STOP
 function stopRecording() {
   if (!isIOS && mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.stop();
   }
 }
 
-// ▶️ PLAY
 function playFile(i) {
   const url = URL.createObjectURL(files[i]);
   const audio = new Audio(url);
@@ -227,21 +240,21 @@ function render() {
 
     if (mode === 'record') {
       card.innerHTML = `
-        <div>File ${i+1}</div>
+        <div>Sentence ${i+1}</div>
         <button class="delete-btn" onclick="deleteFile(${i})">✖</button>
       `;
     }
 
     if (mode === 'play') {
       card.innerHTML = `
-        <div>${i+1}</div>
+        <div>Sentence ${i+1}</div>
         <button class="play-btn" onclick="playFile(${i})">Play</button>
       `;
     }
 
     if (mode === 'analyse') {
       card.innerHTML = `
-        <div>File ${i+1}</div>
+        <div>Sentence ${i+1}</div>
         <div>Plays: ${playCounts[i]}</div>
       `;
     }
