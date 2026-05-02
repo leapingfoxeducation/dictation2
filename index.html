@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Dictation Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=ADLaM+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --dark: #002D3F;
+  --green: #73A333;
+  --blue: #00A4C7;
+  --purple: #BF61E5;
+  --orange: #E76A03;
+  --light: #EDEFEE;
+}
+
+body {
+  margin: 0;
+  font-family: 'ADLaM Display', sans-serif;
+  background: var(--dark);
+  color: var(--light);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  width: 420px;
+  background: #01394f;
+  padding: 20px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+select {
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-family: inherit;
+}
+
+.files {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.card {
+  background: var(--blue);
+  padding: 10px;
+  border-radius: 12px;
+  width: 100px;
+}
+
+button {
+  margin: 3px;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.record-btn { background: var(--orange); }
+.delete-btn { background: crimson; color: white; }
+.nav-btn { background: var(--purple); }
+.play-btn { background: var(--green); }
+.replay-btn { background: var(--blue); }
+
+.indicator {
+  width: 10px;
+  height: 10px;
+  background: red;
+  border-radius: 50%;
+  margin: 10px auto;
+  opacity: 0;
+}
+
+.recording { opacity: 1; animation: pulse 1s infinite; }
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Dictation Tool</h2>
+
+  <select id="mode" onchange="render()">
+    <option value="record">Record</option>
+    <option value="play">Play</option>
+    <option value="analyse">Analyse</option>
+  </select>
+
+  <div class="indicator" id="recLight"></div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+let mediaRecorder = null;
+let audioChunks = [];
+let files = [];
+let playCounts = [];
+let currentRecordingIndex = null;
+
+async function initRecorder() {
+  if (mediaRecorder) return; // already set up
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      const insertIndex = currentRecordingIndex === null ? files.length : currentRecordingIndex + 1;
+
+      files.splice(insertIndex, 0, blob);
+      playCounts.splice(insertIndex, 0, 0);
+
+      audioChunks = [];
+      document.getElementById('recLight').classList.remove('recording');
+      render();
+    };
+
+  } catch (err) {
+    alert('Microphone access denied or unavailable');
+  }
+}
+
+async function startRecording(index) {
+  await initRecorder();
+
+  if (!mediaRecorder || mediaRecorder.state === 'recording') return;
+
+  currentRecordingIndex = (index !== undefined) ? index : files.length - 1;
+  audioChunks = [];
+
+  mediaRecorder.start();
+  document.getElementById('recLight').classList.add('recording');
+}
+
+function stopRecording() {
+  if (!mediaRecorder || mediaRecorder.state !== 'recording') return;
+  mediaRecorder.stop();
+}
+
+function deleteFile(i) {
+  files.splice(i, 1);
+  playCounts.splice(i, 1);
+  render();
+}
+
+function moveLeft(i) {
+  if (i === 0) return;
+  [files[i-1], files[i]] = [files[i], files[i-1]];
+  [playCounts[i-1], playCounts[i]] = [playCounts[i], playCounts[i-1]];
+  render();
+}
+
+function moveRight(i) {
+  if (i === files.length - 1) return;
+  [files[i+1], files[i]] = [files[i], files[i+1]];
+  [playCounts[i+1], playCounts[i]] = [playCounts[i], playCounts[i+1]];
+  render();
+}
+
+function playFile(i) {
+  const audio = new Audio(URL.createObjectURL(files[i]));
+  audio.play();
+  playCounts[i]++;
+  render();
+}
+
+function render() {
+  const mode = document.getElementById('mode').value;
+  const container = document.getElementById('content');
+  container.innerHTML = '';
+
+  if (mode === 'record') {
+    const recordBtn = document.createElement('button');
+    recordBtn.innerText = 'Record New';
+    recordBtn.className = 'record-btn';
+    recordBtn.onclick = () => startRecording();
+
+    const stopBtn = document.createElement('button');
+    stopBtn.innerText = 'Stop';
+    stopBtn.onclick = stopRecording;
+
+    container.appendChild(recordBtn);
+    container.appendChild(stopBtn);
+  }
+
+  const fileContainer = document.createElement('div');
+  fileContainer.className = 'files';
+
+  files.forEach((file, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    if (mode === 'record') {
+      card.innerHTML = `
+        <div>File ${i+1}</div>
+        <button class="delete-btn" onclick="deleteFile(${i})">✖</button>
+        <button class="nav-btn" onclick="moveLeft(${i})">←</button>
+        <button class="nav-btn" onclick="moveRight(${i})">→</button>
+      `;
+    }
+
+    if (mode === 'play') {
+      card.innerHTML = `
+        <div>${i+1}</div>
+        <button class="play-btn" onclick="playFile(${i})">Play</button>
+        <button class="replay-btn" onclick="playFile(${i})">Replay</button>
+      `;
+    }
+
+    if (mode === 'analyse') {
+      card.innerHTML = `
+        <div>File ${i+1}</div>
+        <div>Plays: ${playCounts[i]}</div>
+      `;
+    }
+
+    fileContainer.appendChild(card);
+  });
+
+  container.appendChild(fileContainer);
+}
+
+render();
+</script>
+
+</body>
+</html>
