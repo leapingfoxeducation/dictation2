@@ -133,7 +133,16 @@ let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 // 🎧 SINGLE AUDIO LOCK
 let currentAudio = null;
-let currentIndex = null;
+
+// ✅ STORE AS OBJECT URL (KEY FIX)
+function saveRecording(blob) {
+  const url = URL.createObjectURL(blob);
+  files.push(url);
+  playCounts.push(0);
+  audioChunks = [];
+  document.getElementById('recLight').classList.remove('recording');
+  render();
+}
 
 async function initRecorder() {
   try {
@@ -157,29 +166,22 @@ async function initRecorder() {
   }
 }
 
-function saveRecording(blob) {
-  files.push(blob);
-  playCounts.push(0);
-  audioChunks = [];
-  document.getElementById('recLight').classList.remove('recording');
-  render();
-}
-
 async function startRecording() {
   if (!stream) await initRecorder();
 
   document.getElementById('recLight').classList.add('recording');
 
+  // ✅ iPad FIX (no capture forcing)
   if (isIOS) {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "audio/*";
-    input.capture = "microphone";
+    input.accept = "audio/*"; // NO capture
 
     input.onchange = e => {
       const file = e.target.files[0];
       if (file) {
-        files.push(file);
+        const url = URL.createObjectURL(file);
+        files.push(url);
         playCounts.push(0);
         render();
       }
@@ -202,26 +204,24 @@ function stopRecording() {
   }
 }
 
-// ▶️ PLAY (LOCKED)
+// ▶️ PLAY (SAFE FOR iPAD)
 function playFile(i) {
 
-  // Stop any currently playing audio
+  // Stop current
   if (currentAudio) {
     currentAudio.pause();
-    currentAudio.currentTime = 0;
+    currentAudio = null;
   }
 
-  const url = URL.createObjectURL(files[i]);
-  const audio = new Audio(url);
-
+  const audio = new Audio(files[i]);
   currentAudio = audio;
-  currentIndex = i;
 
-  audio.play();
+  audio.play().catch(() => {
+    console.log("Playback blocked");
+  });
 
   audio.onended = () => {
     currentAudio = null;
-    currentIndex = null;
   };
 
   playCounts[i]++;
@@ -232,15 +232,14 @@ function playFile(i) {
 function stopAudio() {
   if (currentAudio) {
     currentAudio.pause();
-    currentAudio.currentTime = 0;
     currentAudio = null;
-    currentIndex = null;
   }
 }
 
 // 🗑 DELETE
 function deleteFile(i) {
-  if (i === currentIndex) stopAudio();
+  stopAudio();
+  URL.revokeObjectURL(files[i]); // clean up memory
   files.splice(i, 1);
   playCounts.splice(i, 1);
   render();
