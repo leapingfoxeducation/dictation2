@@ -52,7 +52,7 @@ select {
 
 .files {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 15px;
   margin-top: 15px;
 }
@@ -61,7 +61,7 @@ select {
   background: var(--blue);
   padding: 20px;
   border-radius: 16px;
-  min-height: 120px;
+  min-height: 150px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -80,9 +80,6 @@ button {
 
 .record-btn { background: var(--orange); }
 .delete-btn { background: crimson; color: white; }
-.nav-btn { background: var(--purple); }
-.play-btn { background: var(--green); }
-.replay-btn { background: var(--blue); }
 
 .indicator {
   width: 12px;
@@ -100,6 +97,11 @@ button {
   50% { transform: scale(1.5); }
   100% { transform: scale(1); }
 }
+
+audio {
+  width: 100%;
+  margin-top: 8px;
+}
 </style>
 </head>
 
@@ -107,7 +109,7 @@ button {
 
 <div class="container">
 
-  <!-- 🔗 Back to LeapingFox -->
+  <!-- Back link -->
   <a href="https://www.leapingfox.com.au" target="_blank" style="color:#EDEFEE; text-decoration:none; display:block; margin-bottom:10px;">
     ← Back to LeapingFox
   </a>
@@ -201,18 +203,6 @@ function stopRecording() {
   }
 }
 
-function playFile(i) {
-  const url = URL.createObjectURL(files[i]);
-  const audio = new Audio(url);
-
-  audio.play().catch(() => {
-    alert("Tap again to play");
-  });
-
-  playCounts[i]++;
-  render();
-}
-
 function deleteFile(i) {
   files.splice(i, 1);
   playCounts.splice(i, 1);
@@ -246,9 +236,10 @@ function render() {
     }
 
     if (mode === 'play') {
+      const url = URL.createObjectURL(file);
       card.innerHTML = `
         <div>Sentence ${i+1}</div>
-        <button class="play-btn" onclick="playFile(${i})">Play</button>
+        <audio controls src="${url}"></audio>
       `;
     }
 
