@@ -134,7 +134,6 @@ let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 // 🎧 SINGLE AUDIO LOCK
 let currentAudio = null;
 
-// ✅ STORE AS OBJECT URL (KEY FIX)
 function saveRecording(blob) {
   const url = URL.createObjectURL(blob);
   files.push(url);
@@ -171,11 +170,10 @@ async function startRecording() {
 
   document.getElementById('recLight').classList.add('recording');
 
-  // ✅ iPad FIX (no capture forcing)
   if (isIOS) {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "audio/*"; // NO capture
+    input.accept = "audio/*";
 
     input.onchange = e => {
       const file = e.target.files[0];
@@ -204,10 +202,8 @@ function stopRecording() {
   }
 }
 
-// ▶️ PLAY (SAFE FOR iPAD)
+// ▶️ PLAY (LOCKED)
 function playFile(i) {
-
-  // Stop current
   if (currentAudio) {
     currentAudio.pause();
     currentAudio = null;
@@ -216,9 +212,7 @@ function playFile(i) {
   const audio = new Audio(files[i]);
   currentAudio = audio;
 
-  audio.play().catch(() => {
-    console.log("Playback blocked");
-  });
+  audio.play().catch(() => {});
 
   audio.onended = () => {
     currentAudio = null;
@@ -236,10 +230,20 @@ function stopAudio() {
   }
 }
 
+// ⬇ DOWNLOAD
+function downloadFile(i) {
+  const a = document.createElement('a');
+  a.href = files[i];
+  a.download = `Sentence-${i+1}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 // 🗑 DELETE
 function deleteFile(i) {
   stopAudio();
-  URL.revokeObjectURL(files[i]); // clean up memory
+  URL.revokeObjectURL(files[i]);
   files.splice(i, 1);
   playCounts.splice(i, 1);
   render();
@@ -284,6 +288,7 @@ function render() {
       card.innerHTML = `
         <div>Sentence ${i+1}</div>
         <div>Plays: ${playCounts[i]}</div>
+        <button onclick="downloadFile(${i})">⬇ Download</button>
       `;
     }
 
