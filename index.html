@@ -79,6 +79,8 @@ button {
 }
 
 .record-btn { background: var(--orange); }
+.play-btn { background: var(--green); }
+.stop-btn { background: var(--purple); }
 .delete-btn { background: crimson; color: white; }
 
 .indicator {
@@ -97,11 +99,6 @@ button {
   50% { transform: scale(1.5); }
   100% { transform: scale(1); }
 }
-
-audio {
-  width: 100%;
-  margin-top: 8px;
-}
 </style>
 </head>
 
@@ -109,7 +106,6 @@ audio {
 
 <div class="container">
 
-  <!-- Back link -->
   <a href="https://www.leapingfox.com.au" target="_blank" style="color:#EDEFEE; text-decoration:none; display:block; margin-bottom:10px;">
     ← Back to LeapingFox
   </a>
@@ -135,6 +131,10 @@ let playCounts = [];
 let stream;
 let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+// 🎧 SINGLE AUDIO LOCK
+let currentAudio = null;
+let currentIndex = null;
+
 async function initRecorder() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -154,7 +154,6 @@ async function initRecorder() {
 
   } catch (err) {
     alert("Mic error: " + err.message);
-    console.error(err);
   }
 }
 
@@ -203,12 +202,51 @@ function stopRecording() {
   }
 }
 
+// ▶️ PLAY (LOCKED)
+function playFile(i) {
+
+  // Stop any currently playing audio
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
+
+  const url = URL.createObjectURL(files[i]);
+  const audio = new Audio(url);
+
+  currentAudio = audio;
+  currentIndex = i;
+
+  audio.play();
+
+  audio.onended = () => {
+    currentAudio = null;
+    currentIndex = null;
+  };
+
+  playCounts[i]++;
+  render();
+}
+
+// ⏹ STOP
+function stopAudio() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+    currentIndex = null;
+  }
+}
+
+// 🗑 DELETE
 function deleteFile(i) {
+  if (i === currentIndex) stopAudio();
   files.splice(i, 1);
   playCounts.splice(i, 1);
   render();
 }
 
+// 🎨 RENDER
 function render() {
   const mode = document.getElementById('mode').value;
   const container = document.getElementById('content');
@@ -236,10 +274,10 @@ function render() {
     }
 
     if (mode === 'play') {
-      const url = URL.createObjectURL(file);
       card.innerHTML = `
         <div>Sentence ${i+1}</div>
-        <audio controls src="${url}"></audio>
+        <button class="play-btn" onclick="playFile(${i})">Play</button>
+        <button class="stop-btn" onclick="stopAudio()">Stop</button>
       `;
     }
 
